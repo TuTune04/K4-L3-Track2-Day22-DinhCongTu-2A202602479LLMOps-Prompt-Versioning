@@ -59,18 +59,27 @@ def validate() -> bool:
     """
     missing = []
 
-    if not LANGSMITH_API_KEY:
-        missing.append("LANGCHAIN_API_KEY (LangSmith)")
+    def configured(value):
+        return bool(value.strip()) and not value.lower().startswith("your_")
 
-    if PROVIDER == "openai" and not OPENAI_API_KEY:
-        missing.append("OPENAI_API_KEY")
-    elif PROVIDER == "gemini" and not GOOGLE_API_KEY:
-        missing.append("GOOGLE_API_KEY")
-    elif PROVIDER == "anthropic" and not ANTHROPIC_API_KEY:
-        missing.append("ANTHROPIC_API_KEY")
-    elif PROVIDER == "openrouter" and not OPENROUTER_API_KEY:
-        missing.append("OPENROUTER_API_KEY")
-    # Ollama: không cần API key
+    if PROVIDER not in {"openai", "gemini", "anthropic", "ollama", "openrouter"}:
+        missing.append("PROVIDER không hợp lệ")
+    if os.environ["LANGCHAIN_TRACING_V2"].lower() != "true":
+        missing.append("LANGCHAIN_TRACING_V2=true")
+    if not configured(LANGSMITH_API_KEY):
+        missing.append("LANGCHAIN_API_KEY (LangSmith)")
+    required_keys = {
+        "openai": [("OPENAI_API_KEY", OPENAI_API_KEY)],
+        "gemini": [("GOOGLE_API_KEY", GOOGLE_API_KEY)],
+        "anthropic": [("ANTHROPIC_API_KEY", ANTHROPIC_API_KEY),
+                      ("OPENAI_API_KEY (embeddings)", OPENAI_API_KEY)],
+        "openrouter": [("OPENROUTER_API_KEY", OPENROUTER_API_KEY),
+                       ("OPENAI_API_KEY (embeddings)", OPENAI_API_KEY)],
+        "ollama": [],
+    }
+    for name, value in required_keys.get(PROVIDER, []):
+        if not configured(value):
+            missing.append(name)
 
     if missing:
         print("⚠️  Thiếu biến môi trường:")
@@ -84,4 +93,4 @@ def validate() -> bool:
 
 
 if __name__ == "__main__":
-    validate()
+    raise SystemExit(0 if validate() else 1)
