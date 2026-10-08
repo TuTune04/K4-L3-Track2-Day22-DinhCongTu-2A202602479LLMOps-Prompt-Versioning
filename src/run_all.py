@@ -22,26 +22,33 @@ STEPS = {
 }
 
 
-def run_step(step_num: int):
+def run_step(step_num: int) -> bool:
     title, module_name = STEPS[step_num]
     print(f"\n{'=' * 60}")
     print(f"  {title}")
     print(f"{'=' * 60}")
     try:
         module = importlib.import_module(module_name)
-        module.main()
+        result = module.main()
+        if result is False or (
+            isinstance(result, int) and not isinstance(result, bool) and result != 0
+        ):
+            print(f"\n❌ {title} — DỪNG (exit status không thành công)")
+            return False
         print(f"\n✅ {title} — HOÀN THÀNH")
         return True
     except SystemExit as e:
-        if e.code != 0:
-            print(f"\n❌ {title} — DỪNG (config thiếu hoặc lỗi)")
-        return e.code == 0
+        success = e.code in (None, 0)
+        if not success:
+            print(f"\n❌ {title} — DỪNG (config thiếu hoặc bước chạy lỗi)")
+        return success
     except Exception as e:
-        print(f"\n❌ {title} — LỖI: {e}")
+        # Exception messages from provider SDKs can contain request credentials.
+        print(f"\n❌ {title} — LỖI ({type(e).__name__})")
         return False
 
 
-def main():
+def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         description="Chạy Day22 Lab: LangSmith + Prompt Versioning + RAGAS + Guardrails"
     )
@@ -49,7 +56,7 @@ def main():
         "--step", type=int, choices=[1, 2, 3, 4],
         help="Chỉ chạy bước được chỉ định (1-4)"
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     steps_to_run = [args.step] if args.step else list(STEPS.keys())
 
@@ -69,7 +76,8 @@ def main():
         title = STEPS[step_num][0]
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"  {status}  {title}")
+    return 0 if results and all(results.values()) else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

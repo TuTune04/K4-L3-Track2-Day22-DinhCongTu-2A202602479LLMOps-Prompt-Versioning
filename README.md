@@ -8,7 +8,26 @@
 > | [SUBMISSION.md](SUBMISSION.md) | Tên repo, cấu trúc nộp bài, nơi nộp, deadline |
 > | [RULES.md](RULES.md) | Quy định sử dụng AI, sao chép, nộp muộn, bảo mật API key |
 
-# Chào mừng các bạn đến với Day 22: LangSmith + Prompt Versioning
+# Day 22: LangSmith + Prompt Versioning
+
+## Thông tin bài làm
+
+- **Học viên:** Đinh Công Tú
+- **MSSV:** 2A202602479
+- **GitHub:** [TuTune04](https://github.com/TuTune04)
+- **Repository:** [K4-L3-Track2-Day22-DinhCongTu-2A202602479LLMOps-Prompt-Versioning](https://github.com/TuTune04/K4-L3-Track2-Day22-DinhCongTu-2A202602479LLMOps-Prompt-Versioning)
+- **LangSmith project:** [tutune04-day22-lab](https://smith.langchain.com/o/96b61f89-7955-48f6-97c2-694719792b85/projects/p/41895b80-0ae0-4d38-8ceb-ae4a13f3bea2)
+
+Lần chạy thật đã được đối chiếu trên LangSmith server với 50 `rag-query` và
+50 `ab-rag-query` thành công. Các A/B traces gồm 19 lượt V1 và 31 lượt V2;
+retrieved contexts có mặt trong output/child run. Hai prompt thật trên Hub có
+commit V1 `50acd796` và V2 `76267939`. Ảnh trong `evidence/` được chụp từ UI
+LangSmith và terminal thật.
+
+Tên repository hiện tại là tên đã được cung cấp cho bài làm, nhưng khác mẫu
+trong `SUBMISSION.md` (`K4-L3-DAY22-DinhCongTu-2A202602479-LLMOpsPromptVersioning`).
+Cần coach xác nhận tên này trước khi nộp; repository không được tự đổi tên trong
+quá trình hoàn thiện code.
 
 ## Tổng quan
 
@@ -52,13 +71,44 @@ Trước khi bắt đầu, hãy đảm bảo bạn đã có:
 ## Cài đặt nhanh
 
 ```bash
-pip install -r requirements.txt
-pip install "langchain-community<0.4"   # bắt buộc: bản 0.4 làm import ragas lỗi
-cp .env.example .env             # điền LANGCHAIN_API_KEY, PROVIDER và key của provider
-cd src && python config.py       # phải in: ✅ Config OK
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r requirements.lock.txt
+cp .env.example .env
+# Điền LANGCHAIN_API_KEY, OPENAI_API_KEY và giữ PROVIDER=openai.
+.venv/bin/python src/config.py
 ```
 
 Hướng dẫn chi tiết (tạo venv, lấy API key LangSmith, chọn provider, lưu ý cho Windows) ở **Checkpoint 0** trong [CHECKPOINTS.md](CHECKPOINTS.md).
+
+## Chạy và kiểm tra
+
+```bash
+# Chạy riêng từng bước để dễ quan sát và chụp evidence thật.
+.venv/bin/python src/run_all.py --step 1
+.venv/bin/python src/run_all.py --step 2
+.venv/bin/python src/run_all.py --step 3
+.venv/bin/python src/run_all.py --step 4
+
+# Hoặc chạy tuần tự cả bốn bước; runner dừng và trả exit code khác 0 khi có lỗi.
+.venv/bin/python src/run_all.py
+
+# Kiểm tra đủ evidence, report, logs, PNG và secret trước khi nộp.
+.venv/bin/python src/check_submission.py
+
+# Bộ kiểm thử offline không dùng credentials hoặc gọi API.
+.venv/bin/python -m unittest discover -s tests -v
+```
+
+Bốn metric trong báo cáo RAGAS có ý nghĩa như sau:
+
+- `faithfulness`: mức độ các khẳng định trong câu trả lời được context hỗ trợ.
+- `answer_relevancy`: mức độ câu trả lời liên quan trực tiếp đến câu hỏi.
+- `context_recall`: mức độ context truy xuất bao phủ thông tin trong đáp án tham chiếu.
+- `context_precision`: mức độ các context liên quan được xếp trước context ít liên quan.
+
+`answer_relevancy` dựa trên cosine similarity nên điểm từng mẫu có thể âm. Ba
+metric còn lại nằm trong miền 0–1. Bài làm chỉ đạt ngưỡng khi ít nhất một phiên
+bản prompt có faithfulness từ 0.8 trở lên.
 
 ---
 
@@ -153,7 +203,7 @@ Guard().use(PIIDetector(), on_fail=OnFailAction.FIX)
 **Lưu ý phiên bản thư viện:**
 - `langchain-community` phải `< 0.4` (chạy `pip install "langchain-community<0.4"` sau khi cài `requirements.txt`): bản 0.4 làm `import ragas` lỗi `No module named 'langchain_community.chat_models.vertexai'`.
 - RAGAS 0.4: `result[metric_name]` trả về **list** điểm theo từng sample → dùng `numpy.mean()`; truyền `llm=` và `embeddings=` vào `evaluate()`. Cảnh báo deprecated khi import `ragas.metrics` có thể bỏ qua.
-- Guardrails 0.11: với `OnFailAction.FIX`, chỉ `FailResult(fix_value=...)` mới thay được output; `PassResult(value_override=...)` **không** có tác dụng.
+- Guardrails 0.6.8: với `OnFailAction.FIX`, `FailResult(fix_value=...)` thay output bằng giá trị đã sửa; case hợp lệ trả `PassResult()`.
 
 **Bảo mật — không bao giờ commit `.env`:**
 Tệp `.env` chứa API key nhạy cảm. Đảm bảo `.gitignore` đã có dòng `.env` trước khi push lên GitHub. Chỉ commit tệp `.env.example` (không chứa giá trị thật). Vi phạm quy tắc này sẽ bị trừ 10 điểm tự động.
