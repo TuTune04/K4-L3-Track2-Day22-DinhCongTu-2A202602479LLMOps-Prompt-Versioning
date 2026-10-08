@@ -20,7 +20,7 @@ os.environ["LANGCHAIN_ENDPOINT"]   = os.getenv("LANGCHAIN_ENDPOINT", "https://ap
 
 # ── Provider mặc định ─────────────────────────────────────────────────────
 # Đổi giá trị PROVIDER trong .env: openai | gemini | anthropic | ollama | openrouter
-PROVIDER = os.getenv("PROVIDER", "openai").lower()
+PROVIDER = os.getenv("PROVIDER", "openai").strip().lower()
 
 # ── OpenAI ────────────────────────────────────────────────────────────────
 OPENAI_API_KEY         = os.getenv("OPENAI_API_KEY", "")
@@ -60,11 +60,12 @@ def validate() -> bool:
     missing = []
 
     def configured(value):
-        return bool(value.strip()) and not value.lower().startswith("your_")
+        normalized = value.strip().casefold()
+        return bool(normalized) and not normalized.startswith("your_")
 
     if PROVIDER not in {"openai", "gemini", "anthropic", "ollama", "openrouter"}:
         missing.append("PROVIDER không hợp lệ")
-    if os.environ["LANGCHAIN_TRACING_V2"].lower() != "true":
+    if os.environ.get("LANGCHAIN_TRACING_V2", "").strip().casefold() != "true":
         missing.append("LANGCHAIN_TRACING_V2=true")
     if not configured(LANGSMITH_API_KEY):
         missing.append("LANGCHAIN_API_KEY (LangSmith)")
